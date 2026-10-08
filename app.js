@@ -4,7 +4,7 @@
    ========================================================= */
 (() => {
 'use strict';
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 
 /* ---------- Utilities ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -727,7 +727,8 @@ async function makeSamplePdf() {
 
 /* ---------- Viewer ---------- */
 let V = null;
-const PEN_COLORS = [['#1A1A1A', '黒'], ['#C3362B', '赤'], ['#1D3F8F', '青']];
+const PEN_COLORS = [['#1A1A1A', '黒'], ['#6B6B6B', '灰'], ['#C3362B', '赤'], ['#E07B00', 'オレンジ'], ['#2E7D4F', '緑'], ['#1D3F8F', '青'], ['#7B3FA0', '紫']];
+const MARKER_COLORS = [['#F2C230', '黄'], ['#7ED957', '緑'], ['#5BC0EB', '水色'], ['#FF7EB6', 'ピンク'], ['#FFA94D', 'オレンジ']];
 const STAMPS = ['p', 'mf', 'f', 'cresc.', 'V', '1', '2', '3', '4', '5'];
 const WIDTHS = [['細', 0.0025], ['中', 0.004], ['太', 0.007]];
 let wakeLock = null;
@@ -744,7 +745,7 @@ SCREENS.viewer = ({ scoreId, page = null, setlist = null, idx = 0 }) => {
   sc.lastOpened = Date.now(); saveScore(sc);
   V = {
     sc, page: Math.max(firstP(sc), Math.min(lastP(sc), page == null ? firstP(sc) : page)), setlist, idx,
-    edit: false, tool: 'pen', color: '#C3362B', width: 0.004, stamp: 'p', chrome: true, thumbs: false,
+    edit: false, tool: 'pen', color: S.settings.penColor || '#C3362B', markerColor: S.settings.markerColor || '#F2C230', width: 0.004, stamp: 'p', chrome: true, thumbs: false,
     undo: [], drawing: null, doc: null, ann: {}, cache: new Map(), thumbUrls: new Map(), token: 0, dirty: false, penSeen: false, swipe: null,
   };
   const l = setlist && S.setlists.find(x => x.id === setlist);
@@ -827,6 +828,7 @@ async function pageCanvas(i, w) {
 async function renderPages(dir) {
   if (!V || !V.doc) return;
   const v = V, token = ++v.token;
+  v.stageH = $('#stage').clientHeight;
   const pages = visiblePages(), lay = layoutFor(pages);
   const el = $('#spread');
   el.className = 'spread';
@@ -873,16 +875,26 @@ function renderBottom() {
     updateIndicator();
   } else {
     b.innerHTML = `<div class="penbar">
+      <div class="grp pnav">
+        <button class="tool" data-act="vPrev" aria-label="前のページ">${ic('back')}</button>
+        <span class="pg" id="pgLabel"></span>
+        <button class="tool" data-act="vNext" aria-label="次のページ">${ic('next')}</button>
+      </div>
       <div class="grp">
         ${[['pen', 'pen', 'ペン'], ['marker', 'marker', '蛍光ペン'], ['eraser', 'eraser', '消しゴム'], ['stamp', 'stamp', '記号']].map(([t, i, n]) => `<button class="tool ${V.tool === t ? 'on' : ''}" data-act="vTool" data-tool="${t}">${ic(i)}<span class="lbl">${n}</span></button>`).join('')}
       </div>
-      ${V.tool === 'pen' || V.tool === 'stamp' ? `<div class="grp">${PEN_COLORS.map(([c, n]) => `<button class="dot ${V.color === c ? 'on' : ''}" style="background:${c}" data-act="vColor" data-color="${c}" aria-label="${n}"></button>`).join('')}</div>` : ''}
+      ${V.tool === 'pen' || V.tool === 'stamp' ? `<div class="grp">${PEN_COLORS.map(([c, n]) => `<button class="dot ${V.color === c ? 'on' : ''}" style="background:${c}" data-act="vColor" data-color="${c}" aria-label="${n}" title="${n}"></button>`).join('')}</div>` : ''}
+      ${V.tool === 'marker' ? `<div class="grp">${MARKER_COLORS.map(([c, n]) => `<button class="dot ${V.markerColor === c ? 'on' : ''}" style="background:${c}" data-act="vMColor" data-color="${c}" aria-label="${n}" title="${n}"></button>`).join('')}</div>` : ''}
       ${V.tool === 'pen' ? `<div class="grp">${WIDTHS.map(([n, w]) => `<button class="tool ${V.width === w ? 'on' : ''}" data-act="vWidth" data-w="${w}">${n}</button>`).join('')}</div>` : ''}
       ${V.tool === 'stamp' ? `<div class="grp">${STAMPS.map(s => `<button class="stamp ${/\d/.test(s) ? 'num' : ''} ${V.stamp === s ? 'on' : ''}" data-act="vStamp" data-stamp="${s}">${s}</button>`).join('')}</div>` : ''}
       <button class="tool" data-act="vUndo" ${V.undo.length ? '' : 'disabled'}>${ic('undo')}<span class="lbl">元に戻す</span></button>
       <button class="btn primary sm" data-act="vEdit">${ic('check')}完了</button>
     </div>`;
+    updateIndicator();
   }
+  // the toolbar can change height (e.g. the stamp row); re-fit the pages when it does
+  const st = $('#stage');
+  if (st && V.doc && V.stageH != null && Math.abs(st.clientHeight - V.stageH) > 2) renderPages(0);
 }
 function turn(d) {
   if (!V) return;
@@ -971,7 +983,7 @@ function setupAnnCanvas(pg, i) {
     const p = pt(e), list = annList(i);
     if (V.tool === 'stamp') { const it = { t: 'stamp', text: V.stamp, x: p[0], y: p[1], color: V.color }; list.push(it); V.undo.push({ i, it, op: 'add' }); drawAnn(c, i); saveAnnSoon(); renderBottom(); return; }
     if (V.tool === 'eraser') { V.drawing = { erase: true, id: e.pointerId }; eraseAt(i, p, c); return; }
-    const it = { t: 'stroke', tool: V.tool, color: V.tool === 'marker' ? '#F2C230' : V.color, w: V.tool === 'marker' ? 0.022 : V.width, pts: [p] };
+    const it = { t: 'stroke', tool: V.tool, color: V.tool === 'marker' ? V.markerColor : V.color, w: V.tool === 'marker' ? 0.022 : V.width, pts: [p] };
     list.push(it); V.undo.push({ i, it, op: 'add' }); V.drawing = { it, id: e.pointerId };
     drawAnn(c, i);
   });
@@ -1705,14 +1717,16 @@ const ACT = {
   vEdit: () => {
     V.edit = !V.edit;
     $('#full').classList.toggle('editing', V.edit); $('#vEditBtn').classList.toggle('on', V.edit);
-    if (V.edit) { setChrome(true); V.thumbs = false; $('#vThumbs').hidden = true; V.undo = []; renderPages(0); }
+    if (V.edit) { setChrome(true); V.thumbs = false; $('#vThumbs').hidden = true; V.undo = []; }
     else if (V.dirty || V.undo.length) { clearTimeout(annTimer); persistAnn(V.sc, V.ann); V.dirty = false; toast('書き込みを保存しました'); }
     renderBottom();
+    renderPages(0);
   },
   vThumbs: () => { V.thumbs = !V.thumbs; $('#vThumbs').hidden = !V.thumbs; if (V.thumbs) renderThumbs(); },
   vJump: d => { V.page = +d.p; renderPages(0); },
   vTool: d => { V.tool = d.tool; renderBottom(); },
-  vColor: d => { V.color = d.color; renderBottom(); },
+  vColor: d => { V.color = d.color; S.settings.penColor = d.color; saveSettings(); renderBottom(); },
+  vMColor: d => { V.markerColor = d.color; S.settings.markerColor = d.color; saveSettings(); renderBottom(); },
   vWidth: d => { V.width = +d.w; renderBottom(); },
   vStamp: d => { V.stamp = d.stamp; renderBottom(); },
   vUndo: () => {
