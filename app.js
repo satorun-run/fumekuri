@@ -5,7 +5,7 @@
 (() => {
 'use strict';
 if (window.__fmkUnsupported) return; // index.html shows the "please update" message
-const VERSION = '1.3.2';
+const VERSION = '1.3.3';
 
 /* ---------- Utilities ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -438,7 +438,7 @@ SCREENS.settings = () => {
       <section class="set-sec"><h2>表示</h2><div class="list">
         <div class="set-row"><div class="grow"><b>横向きのとき見開きで表示</b><small>iPadを横にすると2ページ並べて表示します。組み方は楽譜ごとの「ページ設定」で選べます</small></div>${sw('spread', s.spread)}</div>
         <div class="set-row"><div class="grow"><b>演奏中はメニューを隠す</b><small>ページをめくるとメニューが自動で消えます。中央をタップすると戻ります</small></div>${sw('autoHide', s.autoHide)}</div>
-        <div class="set-row"><div class="grow"><b>楽譜を開いている間は画面を消灯させない</b><small>楽譜を開いている間はスリープしません。低電力モード中は効かないことがあるため、本番では「設定」アプリ →「画面表示と明るさ」→「自動ロック」を「なし」にしておくと確実です</small></div>${sw('keepAwake', s.keepAwake)}</div>
+        <div class="set-row"><div class="grow"><b>楽譜を開いている間は画面を消灯させない</b><small>楽譜を開いている間はスリープしません。iPad・iPhoneでは無音の動画を再生して消灯を防ぐため、ほかのアプリで流している音楽が止まることがあります。低電力モード中は効かないことがあるので、本番では「設定」アプリ →「画面表示と明るさ」→「自動ロック」を「なし」にしておくと確実です${S.wakeStatus ? `<br>前回の状態：${S.wakeStatus === 'ok' ? '動作中（消灯防止の動画を再生できました）' : `動画を再生できませんでした（${esc(S.wakeStatus.slice(3))}）`}` : ''}</small></div>${sw('keepAwake', s.keepAwake)}</div>
       </div></section>
       <section class="set-sec"><h2>保存とバックアップ</h2><div class="list">
         <div class="set-row"><div class="grow"><b>この端末の保存容量</b><small>${S.scores.length}曲・楽譜ファイル ${fmtMB(totalSize())}${quota ? `（アプリ全体 ${fmtMB(used)} / 上限の目安 ${fmtMB(quota)}）` : ''}</small>
@@ -753,22 +753,34 @@ const MARKER_COLORS = [['#F2C230', '黄'], ['#7ED957', '緑'], ['#5BC0EB', '水�
 const STAMPS = ['p', 'mf', 'f', 'cresc.', 'V', '1', '2', '3', '4', '5'];
 const WIDTHS = [['細', 0.0025], ['中', 0.004], ['太', 0.007]];
 let wakeLock = null, wakeVideo = null;
+S.wakeStatus = '';
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function playWakeVideo() {
+  const p = wakeVideo.play();
+  if (!p || !p.then) return;
+  p.then(() => { S.wakeStatus = 'ok'; }).catch(e => {
+    S.wakeStatus = 'ng:' + (e && e.name || 'error');
+    // playback with sound needs a tap: try again on the next touch while a score is open
+    document.addEventListener('pointerdown', () => { if (V && S.settings.keepAwake && wakeVideo.paused) playWakeVideo(); }, { once: true, capture: true });
+  });
+}
 function setWake(on) {
   on = on && S.settings.keepAwake;
-  // iPadOS before 18.4 ignores the Wake Lock API in home-screen apps; a muted looping video keeps the screen on.
-  // Started synchronously so it still counts as part of the user's tap.
+  // iPadOS before 18.4 ignores the Wake Lock API in home-screen apps. iOS keeps the screen on while a video with an
+  // audio track plays unmuted (the track is silent). Started synchronously so it still counts as part of the user's tap.
   if (isIOS() || !('wakeLock' in navigator)) {
     if (on && window.FMK_WAKE_VIDEO) {
       if (!wakeVideo) {
         wakeVideo = document.createElement('video');
-        wakeVideo.setAttribute('playsinline', ''); wakeVideo.setAttribute('muted', ''); wakeVideo.setAttribute('aria-hidden', 'true');
-        wakeVideo.muted = true; wakeVideo.loop = true; wakeVideo.src = window.FMK_WAKE_VIDEO;
-        wakeVideo.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:.01;pointer-events:none;z-index:-1';
+        wakeVideo.setAttribute('playsinline', ''); wakeVideo.setAttribute('webkit-playsinline', ''); wakeVideo.setAttribute('title', '画面の消灯を防ぐ');
+        wakeVideo.muted = false; wakeVideo.loop = true; wakeVideo.preload = 'auto'; wakeVideo.src = window.FMK_WAKE_VIDEO;
+        wakeVideo.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.01;pointer-events:none;z-index:-1';
+        // keep the playhead away from the end so the system never sees playback finish
+        wakeVideo.addEventListener('timeupdate', () => { if (wakeVideo.currentTime > 4) wakeVideo.currentTime = 0.2; });
         document.body.appendChild(wakeVideo);
       }
-      const p = wakeVideo.play(); if (p && p.catch) p.catch(() => {});
-    } else if (wakeVideo) wakeVideo.pause();
+      playWakeVideo();
+    } else if (wakeVideo) { wakeVideo.pause(); }
   }
   (async () => {
     try {
