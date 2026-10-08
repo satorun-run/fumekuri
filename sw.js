@@ -1,14 +1,25 @@
 /* 自動生成ファイル: build_sw.py で作り直してください */
-const CACHE = "fumekuri-cb67f57af8b4";
+const CACHE = "fumekuri-85c38d67dadc";
 const PRECACHE = [
 "./",
 "app.js",
+"doc.css",
 "icons/apple-touch-icon.png",
 "icons/icon-192.png",
 "icons/icon-512.png",
 "icons/icon-maskable-512.png",
 "index.html",
+"licenses.html",
+"licenses/LICENSE_LIBERATION.txt",
+"licenses/cmaps-LICENSE.txt",
+"licenses/foxit-LICENSE.txt",
+"licenses/pako-LICENSE.txt",
+"licenses/pdf-lib-LICENSE.txt",
+"licenses/pdfjs-LICENSE.txt",
+"licenses/standard-fonts-LICENSE.txt",
+"licenses/upng-LICENSE.txt",
 "manifest.webmanifest",
+"policy.html",
 "styles.css",
 "vendor/cmaps/78-EUC-H.bcmap",
 "vendor/cmaps/78-EUC-V.bcmap",

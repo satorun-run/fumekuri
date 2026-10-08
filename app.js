@@ -4,7 +4,7 @@
    ========================================================= */
 (() => {
 'use strict';
-const VERSION = '1.2.2';
+const VERSION = '1.3.0';
 
 /* ---------- Utilities ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -451,7 +451,10 @@ SCREENS.settings = () => {
       </div></section>
       <section class="set-sec"><h2>このアプリについて</h2><div class="list">
         <div class="set-row"><div class="grow"><b>譜めくり ${VERSION}</b><small>${isStandalone() ? 'ホーム画面から起動中' : 'ブラウザで表示中'} · ${S.online ? 'オンライン' : 'オフライン'}</small></div><button class="btn sm" data-act="checkUpdate" ${S.online ? '' : 'disabled'}>アップデートを確認</button></div>
-        <div class="set-row"><div class="grow"><small>グループでの共有は今後のバージョンで対応予定です（サーバーが必要なため）。今は「共有」から、AirDrop・メール・LINEなどで楽譜ファイルを送れます。</small></div></div>
+        <div class="set-row"><div class="grow"><b>プライバシーポリシーとご利用にあたって</b><small>楽譜は端末の中だけに保存され、外部には送られません</small></div><a class="btn sm" href="policy.html">開く</a></div>
+        <div class="set-row"><div class="grow"><b>ライセンス表示</b><small>使用しているオープンソースソフトウェアとフォント</small></div><a class="btn sm" href="licenses.html">開く</a></div>
+        <div class="set-row"><div class="grow"><b>不具合の報告・ご意見</b><small>GitHub の Issues で受け付けています（GitHub アカウントが必要）</small></div><a class="btn sm" href="https://github.com/satorun-run/fumekuri/issues" target="_blank" rel="noopener">開く</a></div>
+        <div class="set-row"><div class="grow"><small>© 2026 satorun-run · グループでの共有は今後のバージョンで対応予定です。今は「共有」から、AirDrop・メール・LINEなどで楽譜ファイルを送れます。</small></div></div>
       </div></section>
     </div>`;
 };

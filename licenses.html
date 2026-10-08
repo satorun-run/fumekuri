@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>ライセンス表示 | 譜めくり</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="doc.css">
+</head>
+<body class="doc">
+<main class="doc-in">
+  <p><a class="back" href="./">← 譜めくりに戻る</a></p>
+  <h1>ライセンス表示</h1>
+  <p>譜めくりは、次のオープンソースソフトウェアとフォントを利用しています。各ソフトウェアの著作権は、それぞれの著作者に帰属します。各ライセンスの条件に従い、著作権表示とライセンス全文を掲載します。いずれも改変せずに同梱しています。</p>
+
+  <section>
+    <h2>譜めくり 本体</h2>
+    <p>Copyright © 2026 satorun-run. All rights reserved.<br>アプリのプログラム（app.js、styles.css ほか）とアイコンは satorun-run が作成したものです。</p>
+  </section>
+
+  <section>
+    <h2>PDF.js 3.11.174</h2>
+    <dl>
+      <dt>用途</dt><dd>PDFの表示（vendor/pdf.min.js、vendor/pdf.worker.min.js）</dd>
+      <dt>著作権</dt><dd>Copyright 2023 Mozilla Foundation and contributors</dd>
+      <dt>ライセンス</dt><dd>Apache License 2.0 — <a href="licenses/pdfjs-LICENSE.txt">全文</a></dd>
+      <dt>入手元</dt><dd><a href="https://github.com/mozilla/pdf.js" rel="noopener">https://github.com/mozilla/pdf.js</a></dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Adobe CMap Resources（PDF.js 同梱）</h2>
+    <dl>
+      <dt>用途</dt><dd>日本語などを含むPDFの文字の表示（vendor/cmaps/）</dd>
+      <dt>著作権</dt><dd>Copyright 1990-2009 Adobe Systems Incorporated. All rights reserved.</dd>
+      <dt>ライセンス</dt><dd>BSD 3-Clause License — <a href="licenses/cmaps-LICENSE.txt">全文</a></dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Foxit 標準フォント（PDF.js 同梱）</h2>
+    <dl>
+      <dt>用途</dt><dd>フォントが埋め込まれていないPDFの表示（vendor/standard_fonts/Foxit*.pfb）</dd>
+      <dt>著作権</dt><dd>Copyright 2014 PDFium Authors. All rights reserved.</dd>
+      <dt>ライセンス</dt><dd>BSD 3-Clause License — <a href="licenses/foxit-LICENSE.txt">全文</a></dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Liberation Sans フォント（PDF.js 同梱）</h2>
+    <dl>
+      <dt>用途</dt><dd>フォントが埋め込まれていないPDFの表示（vendor/standard_fonts/LiberationSans-*.ttf）</dd>
+      <dt>著作権</dt><dd>Digitized data copyright (c) 2010 Google Corporation with Reserved Font Arimo, Tinos and Cousine.<br>Copyright (c) 2012 Red Hat, Inc. with Reserved Font Name Liberation.</dd>
+      <dt>ライセンス</dt><dd>SIL Open Font License 1.1 — <a href="licenses/LICENSE_LIBERATION.txt">全文</a></dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>pdf-lib 1.17.1</h2>
+    <dl>
+      <dt>用途</dt><dd>PDFの作成・書き出し（vendor/pdf-lib.min.js）</dd>
+      <dt>著作権</dt><dd>Copyright (c) 2019 Andrew Dillon</dd>
+      <dt>ライセンス</dt><dd>MIT License — <a href="licenses/pdf-lib-LICENSE.txt">全文</a></dd>
+      <dt>入手元</dt><dd><a href="https://github.com/Hopding/pdf-lib" rel="noopener">https://github.com/Hopding/pdf-lib</a></dd>
+    </dl>
+    <p>pdf-lib には、次のソフトウェアが組み込まれています。</p>
+    <ul>
+      <li><b>@pdf-lib/standard-fonts</b> — Copyright (c) 2018 Andrew Dillon — MIT License — <a href="licenses/standard-fonts-LICENSE.txt">全文</a>。Adobe Core 14 フォントのメトリクス（AFM）データを含みます（下記の告知文を参照）。</li>
+      <li><b>@pdf-lib/upng</b> — Copyright (c) 2017 Photopea — MIT License — <a href="licenses/upng-LICENSE.txt">全文</a></li>
+      <li><b>pako</b> — Copyright (C) 2014-2017 by Vitaly Puzrin and Andrei Tuputcyn — MIT License — <a href="licenses/pako-LICENSE.txt">全文</a>。zlib の移植版です（下記の zlib ライセンスを参照）。</li>
+      <li><b>tslib</b> — Copyright (c) Microsoft Corporation — Apache License 2.0 — <a href="licenses/pdfjs-LICENSE.txt">全文</a>（PDF.js と同じライセンス文）</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Adobe Core 14 AFM 告知文</h2>
+<pre>Copyright (c) 1985, 1987, 1989, 1990, 1991, 1992, 1993, 1997 Adobe Systems
+Incorporated. All Rights Reserved.
+
+This file and the 14 PostScript(R) AFM files it accompanies may be used,
+copied, and distributed for any purpose and without charge, with or without
+modification, provided that all copyright notices are retained; that the AFM
+files are not distributed without this file; that all modifications to this
+file or any of the AFM files are prominently noted in the modified file(s);
+and that this paragraph is not modified. Adobe Systems has no responsibility
+or obligation to support the use of the AFM files.</pre>
+  </section>
+
+  <section>
+    <h2>zlib ライセンス（pako）</h2>
+<pre>(C) 1995-2013 Jean-loup Gailly and Mark Adler
+
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the
+use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not
+   claim that you wrote the original software. If you use this software in a
+   product, an acknowledgment in the product documentation would be
+   appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be
+   misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.</pre>
+  </section>
+
+  <p><a class="back" href="./">← 譜めくりに戻る</a></p>
+</main>
+</body>
+</html>
