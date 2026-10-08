@@ -5,7 +5,7 @@
 (() => {
 'use strict';
 if (window.__fmkUnsupported) return; // index.html shows the "please update" message
-const VERSION = '1.3.1';
+const VERSION = '1.3.2';
 
 /* ---------- Utilities ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -423,7 +423,6 @@ SCREENS.settings = () => {
   const sw = (id, on) => `<label class="switch"><input type="checkbox" id="set-${id}" data-set="${id}" ${on ? 'checked' : ''}><span></span></label>`;
   const used = S.usage && S.usage.usage ? S.usage.usage : totalSize();
   const quota = S.usage && S.usage.quota;
-  const wake = 'wakeLock' in navigator;
   $('#view').innerHTML = `
     <div class="page-head"><div><p class="eyebrow">設定</p><h1>設定</h1></div></div>
     <div class="settings">
@@ -439,7 +438,7 @@ SCREENS.settings = () => {
       <section class="set-sec"><h2>表示</h2><div class="list">
         <div class="set-row"><div class="grow"><b>横向きのとき見開きで表示</b><small>iPadを横にすると2ページ並べて表示します。組み方は楽譜ごとの「ページ設定」で選べます</small></div>${sw('spread', s.spread)}</div>
         <div class="set-row"><div class="grow"><b>演奏中はメニューを隠す</b><small>ページをめくるとメニューが自動で消えます。中央をタップすると戻ります</small></div>${sw('autoHide', s.autoHide)}</div>
-        <div class="set-row"><div class="grow"><b>楽譜を開いている間は画面を消灯させない</b><small>${wake ? '楽譜を開いている間はスリープしません' : 'この端末のブラウザでは使えません（iPadOS 16.4以降で対応）。本番前は「設定」アプリの自動ロックを「なし」にしてください'}</small></div>${sw('keepAwake', s.keepAwake)}</div>
+        <div class="set-row"><div class="grow"><b>楽譜を開いている間は画面を消灯させない</b><small>楽譜を開いている間はスリープしません。低電力モード中は効かないことがあるため、本番では「設定」アプリ →「画面表示と明るさ」→「自動ロック」を「なし」にしておくと確実です</small></div>${sw('keepAwake', s.keepAwake)}</div>
       </div></section>
       <section class="set-sec"><h2>保存とバックアップ</h2><div class="list">
         <div class="set-row"><div class="grow"><b>この端末の保存容量</b><small>${S.scores.length}曲・楽譜ファイル ${fmtMB(totalSize())}${quota ? `（アプリ全体 ${fmtMB(used)} / 上限の目安 ${fmtMB(quota)}）` : ''}</small>
@@ -753,12 +752,30 @@ const PEN_COLORS = [['#1A1A1A', '黒'], ['#6B6B6B', '灰'], ['#C3362B', '赤'], 
 const MARKER_COLORS = [['#F2C230', '黄'], ['#7ED957', '緑'], ['#5BC0EB', '水色'], ['#FF7EB6', 'ピンク'], ['#FFA94D', 'オレンジ']];
 const STAMPS = ['p', 'mf', 'f', 'cresc.', 'V', '1', '2', '3', '4', '5'];
 const WIDTHS = [['細', 0.0025], ['中', 0.004], ['太', 0.007]];
-let wakeLock = null;
-async function setWake(on) {
-  try {
-    if (on && S.settings.keepAwake && 'wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
-    else if (!on && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
-  } catch (e) { /* not allowed */ }
+let wakeLock = null, wakeVideo = null;
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function setWake(on) {
+  on = on && S.settings.keepAwake;
+  // iPadOS before 18.4 ignores the Wake Lock API in home-screen apps; a muted looping video keeps the screen on.
+  // Started synchronously so it still counts as part of the user's tap.
+  if (isIOS() || !('wakeLock' in navigator)) {
+    if (on && window.FMK_WAKE_VIDEO) {
+      if (!wakeVideo) {
+        wakeVideo = document.createElement('video');
+        wakeVideo.setAttribute('playsinline', ''); wakeVideo.setAttribute('muted', ''); wakeVideo.setAttribute('aria-hidden', 'true');
+        wakeVideo.muted = true; wakeVideo.loop = true; wakeVideo.src = window.FMK_WAKE_VIDEO;
+        wakeVideo.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:.01;pointer-events:none;z-index:-1';
+        document.body.appendChild(wakeVideo);
+      }
+      const p = wakeVideo.play(); if (p && p.catch) p.catch(() => {});
+    } else if (wakeVideo) wakeVideo.pause();
+  }
+  (async () => {
+    try {
+      if (on && 'wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
+      else if (!on && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
+    } catch (e) { /* not allowed */ }
+  })();
 }
 
 SCREENS.viewer = ({ scoreId, page = null, setlist = null, idx = 0 }) => {

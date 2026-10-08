@@ -1,5 +1,5 @@
 /* 自動生成ファイル: build_sw.py で作り直してください */
-const CACHE = "fumekuri-d84c125df14d";
+const CACHE = "fumekuri-b866e77fc712";
 const PRECACHE = [
 "./",
 "app.js",
@@ -9,6 +9,7 @@ const PRECACHE = [
 "icons/icon-512.png",
 "icons/icon-maskable-512.png",
 "index.html",
+"keepawake.js",
 "licenses.html",
 "licenses/LICENSE_LIBERATION.txt",
 "licenses/cmaps-LICENSE.txt",
