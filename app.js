@@ -5,7 +5,7 @@
 (() => {
 'use strict';
 if (window.__fmkUnsupported) return; // index.html shows the "please update" message
-const VERSION = '1.3.3';
+const VERSION = '1.3.4';
 
 /* ---------- Utilities ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -773,10 +773,11 @@ function setWake(on) {
       if (!wakeVideo) {
         wakeVideo = document.createElement('video');
         wakeVideo.setAttribute('playsinline', ''); wakeVideo.setAttribute('webkit-playsinline', ''); wakeVideo.setAttribute('title', '画面の消灯を防ぐ');
-        wakeVideo.muted = false; wakeVideo.loop = true; wakeVideo.preload = 'auto'; wakeVideo.src = window.FMK_WAKE_VIDEO;
+        // NOT loop: WebKit never disables sleep for looping media. Instead rewind before the end so playback never finishes.
+        wakeVideo.muted = false; wakeVideo.loop = false; wakeVideo.preload = 'auto'; wakeVideo.src = window.FMK_WAKE_VIDEO;
         wakeVideo.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.01;pointer-events:none;z-index:-1';
-        // keep the playhead away from the end so the system never sees playback finish
         wakeVideo.addEventListener('timeupdate', () => { if (wakeVideo.currentTime > 4) wakeVideo.currentTime = 0.2; });
+        wakeVideo.addEventListener('ended', () => { if (V && S.settings.keepAwake) { wakeVideo.currentTime = 0; playWakeVideo(); } });
         document.body.appendChild(wakeVideo);
       }
       playWakeVideo();
