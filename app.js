@@ -4,7 +4,8 @@
    ========================================================= */
 (() => {
 'use strict';
-const VERSION = '1.3.0';
+if (window.__fmkUnsupported) return; // index.html shows the "please update" message
+const VERSION = '1.3.1';
 
 /* ---------- Utilities ---------- */
 const $ = (s, r = document) => r.querySelector(s);
