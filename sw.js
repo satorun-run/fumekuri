@@ -1,5 +1,5 @@
 /* 自動生成ファイル: build_sw.py で作り直してください */
-const CACHE = "fumekuri-b41ef18d1d54";
+const CACHE = "fumekuri-cb67f57af8b4";
 const PRECACHE = [
 "./",
 "app.js",

@@ -81,7 +81,8 @@ main#view{overflow:auto;-webkit-overflow-scrolling:touch;padding:30px 34px calc(
 .iconbtn:disabled{opacity:.3}
 
 .search{display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink-2)}
-.search input{border:0;background:transparent;outline:0;width:180px;color:var(--ink);font-size:16px}
+.search input{border:0;background:transparent;outline:0;width:180px;color:var(--ink);font-size:16px;-webkit-appearance:none;appearance:none;padding:0;border-radius:0}
+.search input::-webkit-search-decoration,.search input::-webkit-search-results-decoration{-webkit-appearance:none;display:none}
 select.sel{height:40px;border:1px solid var(--line);border-radius:9px;background:var(--surface);padding:0 10px;font-size:15px}
 
 .chips{display:none;gap:8px;overflow-x:auto;margin:-6px 0 18px;padding-bottom:4px}
