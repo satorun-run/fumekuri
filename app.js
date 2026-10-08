@@ -4,7 +4,7 @@
    ========================================================= */
 (() => {
 'use strict';
-const VERSION = '1.2.0';
+const VERSION = '1.2.1';
 
 /* ---------- Utilities ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -274,10 +274,9 @@ function renderTabbar() {
 const SCREENS = {};
 const thumbHTML = s => `<div class="thumb">${s && s.thumb ? `<img src="${s.thumb}" alt="">` : ''}</div>`;
 
-SCREENS.library = ({ folder = 'all' }) => {
-  const names = { all: 'すべての楽譜', recent: '最近開いた楽譜', scan: 'スキャンした楽譜', none: 'フォルダなし' };
-  S.folders.forEach(f => { names[f.id] = f.name; });
-  if (!names[folder]) folder = 'all';
+/* search key: full/half width unified, katakana folded to hiragana, lower case */
+const norm = s => String(s || '').normalize('NFKC').toLowerCase().replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+function libList(folder) {
   let list = S.scores.filter(s => {
     if (folder === 'all') return true;
     if (folder === 'recent') return s.lastOpened && Date.now() - s.lastOpened < 14 * DAY;
@@ -285,20 +284,21 @@ SCREENS.library = ({ folder = 'all' }) => {
     if (folder === 'none') return !s.folder || !folderName(s.folder);
     return s.folder === folder;
   });
-  const q = S.search.trim().toLowerCase();
-  if (q) list = list.filter(s => (s.title + ' ' + s.composer).toLowerCase().indexOf(q) > -1);
+  const q = S.search.trim();
+  if (q) {
+    const words = norm(q).split(/\s+/).filter(Boolean);
+    list = list.filter(s => { const t = norm(s.title + ' ' + s.composer); return words.every(w => t.indexOf(w) > -1); });
+  }
   const sorters = {
     recent: (a, b) => (b.lastOpened || b.added) - (a.lastOpened || a.added),
     title: (a, b) => a.title.localeCompare(b.title, 'ja'),
     added: (a, b) => b.added - a.added,
   };
   list.sort(folder === 'recent' ? sorters.recent : sorters[S.sort]);
-  const isUserFolder = !!S.folders.find(f => f.id === folder);
-  const chips = [['all', 'すべて'], ['recent', '最近'], ['scan', 'スキャン']].concat(S.folders.map(f => [f.id, f.name]));
-  let hintDismissed = false;
-  try { hintDismissed = !!localStorage.getItem('fmk-install-hint'); } catch (e) { hintDismissed = true; }
-  const showInstall = !isStandalone() && /iPad|iPhone|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document && !hintDismissed;
-
+  return { list, q };
+}
+function libSubText(list, q) { return `${list.length}曲${q ? `（「${q}」で絞り込み）` : ''}`; }
+function libBodyHTML(list, q) {
   let body;
   if (!S.scores.length) {
     body = `<section class="welcome">
@@ -313,10 +313,23 @@ SCREENS.library = ({ folder = 'all' }) => {
   } else {
     body = `<div class="empty">${ic('music')}<p>${q ? '該当する楽譜がありません。別の言葉で検索してください。' : 'ここにはまだ楽譜がありません。'}</p>${q ? '' : `<button class="btn primary" data-act="add">${ic('plus')}楽譜を追加</button>`}</div>`;
   }
+  return body + (S.selecting ? selbarHTML(list) : '');
+}
+SCREENS.library = ({ folder = 'all' }) => {
+  const names = { all: 'すべての楽譜', recent: '最近開いた楽譜', scan: 'スキャンした楽譜', none: 'フォルダなし' };
+  S.folders.forEach(f => { names[f.id] = f.name; });
+  if (!names[folder]) folder = 'all';
+  const { list, q } = libList(folder);
+  const isUserFolder = !!S.folders.find(f => f.id === folder);
+  const chips = [['all', 'すべて'], ['recent', '最近'], ['scan', 'スキャン']].concat(S.folders.map(f => [f.id, f.name]));
+  let hintDismissed = false;
+  try { hintDismissed = !!localStorage.getItem('fmk-install-hint'); } catch (e) { hintDismissed = true; }
+  const showInstall = !isStandalone() && /iPad|iPhone|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document && !hintDismissed;
+
   $('#view').innerHTML = `
     ${showInstall ? `<div class="note" style="margin-bottom:18px;display:flex;gap:10px;align-items:flex-start"><span style="flex:1">Safariの共有ボタン ${ic('share')} から「ホーム画面に追加」すると、全画面で使えて、保存した楽譜も消えにくくなります。</span><button class="iconbtn" data-act="hideInstall" aria-label="閉じる">${ic('close')}</button></div>` : ''}
     <div class="page-head">
-      <div><p class="eyebrow">ライブラリ</p><div class="title-row"><h1>${esc(names[folder])}</h1>${isUserFolder ? `<button class="iconbtn" data-act="folderMenu" data-id="${folder}" aria-label="フォルダのメニュー">${ic('more')}</button>` : ''}</div><p class="sub">${list.length}曲${q ? `（「${esc(S.search)}」で絞り込み）` : ''}</p></div>
+      <div><p class="eyebrow">ライブラリ</p><div class="title-row"><h1>${esc(names[folder])}</h1>${isUserFolder ? `<button class="iconbtn" data-act="folderMenu" data-id="${folder}" aria-label="フォルダのメニュー">${ic('more')}</button>` : ''}</div><p class="sub" id="libSub">${esc(libSubText(list, q))}</p></div>
       <div class="head-actions">
         <label class="search">${ic('search')}<span class="sr">楽譜を検索</span><input id="q" type="search" placeholder="曲名・作曲者で検索" value="${esc(S.search)}" autocomplete="off"></label>
         <select class="sel" id="sort" aria-label="並び順" ${folder === 'recent' ? 'disabled' : ''}>
@@ -329,10 +342,15 @@ SCREENS.library = ({ folder = 'all' }) => {
       </div>
     </div>
     <div class="chips">${chips.map(([id, n]) => `<button class="chip ${folder === id ? 'active' : ''}" data-nav="library:${id}">${esc(n)}</button>`).join('')}<button class="chip" data-act="newFolder">＋ フォルダ</button></div>
-    ${body}
-    ${S.selecting ? selbarHTML(list) : ''}`;
+    <div id="libBody">${libBodyHTML(list, q)}</div>`;
+  // update only the results while typing, so the input (and Japanese IME composition) is never rebuilt
   const qi = $('#q');
-  qi.addEventListener('input', () => { S.search = qi.value; const pos = qi.selectionStart; SCREENS.library({ folder }); const n = $('#q'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { /* type=search */ } });
+  let composing = false;
+  const refresh = () => { S.search = qi.value; const r = libList(folder); $('#libSub').textContent = libSubText(r.list, r.q); $('#libBody').innerHTML = libBodyHTML(r.list, r.q); };
+  qi.addEventListener('compositionstart', () => { composing = true; });
+  qi.addEventListener('compositionend', () => { composing = false; refresh(); });
+  qi.addEventListener('input', e => { if (composing || e.isComposing) return; refresh(); });
+  qi.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) qi.blur(); });
   $('#sort').addEventListener('change', e => { S.sort = e.target.value; SCREENS.library({ folder }); });
   if (S.newId) { const el = $(`.card[data-id="${S.newId}"]`); if (el) el.scrollIntoView({ block: 'center' }); S.newId = null; }
 };
