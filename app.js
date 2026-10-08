@@ -4,7 +4,7 @@
    ========================================================= */
 (() => {
 'use strict';
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 /* ---------- Utilities ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -59,6 +59,9 @@ const I = {
   book: '<path d="M12 6.5C10 5 7 4.5 4 5v13.5c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5z"/><path d="M12 6.5V20"/>',
   wand: '<path d="M4 20L15 9"/><path d="M14 4v3M17.5 5.5l-2 2M19 9h-3M12.5 5.5l2 2"/>',
   next: '<path d="M9 5l7 7-7 7"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/>',
+  move: '<path d="M3 7a1 1 0 011-1h5l2 2h9a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M10 13h6M13.5 10.5L16 13l-2.5 2.5"/>',
+  select: '<circle cx="12" cy="12" r="8.5"/><path d="M8 12l3 3 5-6"/>',
 };
 const ic = (n, cls = '') => `<svg class="ic ${n === 'more' ? 'fill' : ''} ${cls}" viewBox="0 0 24 24" aria-hidden="true">${I[n]}</svg>`;
 
@@ -104,6 +107,7 @@ const S = {
   scores: [], folders: [], setlists: [], settings: Object.assign({}, DEFAULT_SETTINGS),
   stack: [{ name: 'library', params: { folder: 'all' } }],
   search: '', sort: 'recent', newId: null, online: navigator.onLine, usage: null, persisted: false,
+  selecting: false, selected: new Set(),
 };
 async function loadAll() {
   S.scores = (await DB.all('scores')) || [];
@@ -320,26 +324,41 @@ SCREENS.library = ({ folder = 'all' }) => {
           <option value="title" ${S.sort === 'title' ? 'selected' : ''}>曲名順</option>
           <option value="added" ${S.sort === 'added' ? 'selected' : ''}>追加した順</option>
         </select>
-        <button class="btn primary" data-act="add">${ic('plus')}楽譜を追加</button>
+        ${S.scores.length ? `<button class="btn ${S.selecting ? 'primary' : ''}" data-act="selToggle">${ic('select')}${S.selecting ? '選択を終了' : '選択'}</button>` : ''}
+        ${S.selecting ? '' : `<button class="btn primary" data-act="add">${ic('plus')}楽譜を追加</button>`}
       </div>
     </div>
     <div class="chips">${chips.map(([id, n]) => `<button class="chip ${folder === id ? 'active' : ''}" data-nav="library:${id}">${esc(n)}</button>`).join('')}<button class="chip" data-act="newFolder">＋ フォルダ</button></div>
-    ${body}`;
+    ${body}
+    ${S.selecting ? selbarHTML(list) : ''}`;
   const qi = $('#q');
   qi.addEventListener('input', () => { S.search = qi.value; const pos = qi.selectionStart; SCREENS.library({ folder }); const n = $('#q'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { /* type=search */ } });
   $('#sort').addEventListener('change', e => { S.sort = e.target.value; SCREENS.library({ folder }); });
   if (S.newId) { const el = $(`.card[data-id="${S.newId}"]`); if (el) el.scrollIntoView({ block: 'center' }); S.newId = null; }
 };
+function selbarHTML(list) {
+  const n = S.selected.size, ids = Array.from(S.selected).join(',');
+  const allOn = list.length && list.every(s => S.selected.has(s.id));
+  return `<div class="selbar">
+    <span class="selcount">${n ? `${n}曲を選択中` : '楽譜をタップして選んでください'}</span>
+    <button class="btn sm ghost" data-act="selAll" data-ids="${list.map(s => s.id).join(',')}" data-on="${allOn ? '0' : '1'}">${allOn ? '選択を解除' : 'すべて選択'}</button>
+    <span class="grow"></span>
+    <button class="btn sm" data-act="moveAsk" data-ids="${ids}" ${n ? '' : 'disabled'}>${ic('move')}フォルダに移動</button>
+    <button class="btn sm" data-act="dupMany" data-ids="${ids}" ${n ? '' : 'disabled'}>${ic('copy')}複製</button>
+    <button class="btn sm danger" data-act="delManyAsk" data-ids="${ids}" ${n ? '' : 'disabled'}>${ic('trash')}削除</button>
+  </div>`;
+}
 function cardHTML(s) {
-  return `<article class="card ${S.newId === s.id ? 'is-new' : ''}" data-id="${s.id}">
-    <button class="card-open" data-open="${s.id}" aria-label="${esc(s.title)}を開く">${thumbHTML(s)}</button>
+  const sel = S.selecting, on = sel && S.selected.has(s.id);
+  return `<article class="card ${S.newId === s.id ? 'is-new' : ''} ${sel ? 'sel-mode' : ''} ${on ? 'selected' : ''}" data-id="${s.id}">
+    <button class="card-open" ${sel ? `data-sel="${s.id}" aria-pressed="${on}"` : `data-open="${s.id}"`} aria-label="${esc(s.title)}${sel ? 'を選択' : 'を開く'}">${thumbHTML(s)}${sel ? `<span class="selmark">${on ? ic('check') : ''}</span>` : ''}</button>
     <div class="card-body">
       <div class="card-text">
         <h3>${esc(s.title)}</h3>
         <p class="composer">${esc(s.composer) || '&nbsp;'}</p>
         <div class="meta">${s.source === 'scan' ? '<span class="badge scan">スキャン</span>' : '<span class="badge">PDF</span>'}${s.annCount ? '<span class="badge ann">書き込み</span>' : ''}<span>${hasRange(s) ? `${firstP(s) + 1}–${lastP(s) + 1}/${s.pages}` : s.pages}ページ · ${rel(s.lastOpened)}</span></div>
       </div>
-      <button class="iconbtn more" data-more="${s.id}" aria-label="${esc(s.title)}のメニュー">${ic('more')}</button>
+      ${sel ? '' : `<button class="iconbtn more" data-more="${s.id}" aria-label="${esc(s.title)}のメニュー">${ic('more')}</button>`}
     </div>
   </article>`;
 }
@@ -926,12 +945,16 @@ function renderThumbs() {
 /* annotations */
 let annTimer;
 const annList = i => (V.ann[i] || (V.ann[i] = []));
-async function persistAnn(sc, ann) {
-  try {
-    const count = Object.keys(ann).reduce((a, k) => a + ann[k].length, 0);
-    await DB.put('ann', ann, sc.id);
-    if (sc.annCount !== count) { sc.annCount = count; await saveScore(sc); }
-  } catch (e) { fail(e, '書き込みを保存'); }
+let annSaving = Promise.resolve();
+function persistAnn(sc, ann) {
+  annSaving = (async () => {
+    try {
+      const count = Object.keys(ann).reduce((a, k) => a + ann[k].length, 0);
+      await DB.put('ann', ann, sc.id);
+      if (sc.annCount !== count) { sc.annCount = count; await saveScore(sc); }
+    } catch (e) { fail(e, '書き込みを保存'); }
+  })();
+  return annSaving;
 }
 function saveAnnSoon() { V.dirty = true; clearTimeout(annTimer); const sc = V.sc, ann = V.ann, v = V; annTimer = setTimeout(() => { persistAnn(sc, ann); v.dirty = false; }, 700); }
 function setupAnnCanvas(pg, i) {
@@ -1310,6 +1333,8 @@ function sheetMore(id) {
       <button data-act="export" data-id="${id}">${ic('pdf')}PDFで書き出す</button>
       <button data-act="pageSetup" data-id="${id}">${ic('book')}ページ設定（見開き・表示範囲）</button>
       <button data-act="toSetlist" data-id="${id}">${ic('list')}セットリストに追加</button>
+      <button data-act="moveAsk" data-ids="${id}">${ic('move')}フォルダに移動${folderName(s.folder) ? `（今：${esc(folderName(s.folder))}）` : ''}</button>
+      <button data-act="dupAsk" data-id="${id}">${ic('copy')}複製（コピーを作る）</button>
       <button data-act="info" data-id="${id}">${ic('info')}情報を編集</button>
       <button class="danger" data-act="delAsk" data-id="${id}">${ic('trash')}削除</button>
     </div>`);
@@ -1383,6 +1408,49 @@ function psPreview() {
   const list = shown.length > 12 ? shown.slice(0, 12).map(g => g.map(i => i + 1).join('・')).join(' / ') + ' …' : shown.map(g => g.map(i => i + 1).join('・')).join(' / ');
   $('#psSum').textContent = `${PS.first + 1}〜${PS.last + 1}ページを表示（${PS.last - PS.first + 1}ページ）。見開きでは ${list} の順にめくります。`;
 }
+function sheetMove(ids) {
+  const one = ids.length === 1 ? byId(ids[0]) : null;
+  const curF = one ? (folderName(one.folder) ? one.folder : '') : null;
+  const row = (fid, name) => `<button data-act="moveDo" data-f="${fid}" data-ids="${ids.join(',')}" ${curF === fid ? 'disabled' : ''}>${ic(curF === fid ? 'check' : 'folder')}<span>${esc(name)}${curF === fid ? '（今ここ）' : ''}</span></button>`;
+  openSheet(`${sheetHead('フォルダに移動', one ? esc(one.title) : `${ids.length}曲`)}
+    <div class="menu">${row('', 'フォルダなし')}${S.folders.map(f => row(f.id, f.name)).join('')}</div>
+    <div class="sheet-foot"><button class="btn" data-act="newFolder" data-move="${ids.join(',')}">${ic('plus')}新しいフォルダを作って移動</button></div>`);
+}
+async function moveScores(ids, folderId) {
+  for (const id of ids) { const s = byId(id); if (s) { s.folder = folderId; await saveScore(s); } }
+}
+function sheetDup(id) {
+  const s = byId(id);
+  openSheet(`${sheetHead('複製（コピーを作る）', esc(s.title))}
+    <div class="fields">${infoFields(s.title + '（コピー）', s.composer, folderName(s.folder) ? s.folder : '')}</div>
+    <div class="field"><label>書き込み</label><div class="radio-row" data-name="dupAnn">
+      <button class="${s.annCount ? 'on' : ''}" data-act="radio" data-v="1">書き込みもコピー</button>
+      <button class="${s.annCount ? '' : 'on'}" data-act="radio" data-v="0">書き込みなし（きれいな楽譜）</button></div></div>
+    <p class="help">ページ設定（見開き・表示範囲）もそのままコピーします。コピーは元の楽譜とは別に保存されるので、片方に書き込んでももう片方は変わりません（保存容量を${fmtMB(s.size || 0)}使います）。</p>
+    <div class="sheet-foot"><button class="btn" data-act="closeSheet">キャンセル</button><button class="btn primary" data-act="dupDo" data-id="${id}">${ic('copy')}複製する</button></div>`);
+}
+async function duplicateScore(s, meta) {
+  await annSaving;
+  const buf = await DB.get('files', s.id);
+  if (!buf) throw new Error('楽譜ファイルが見つかりません');
+  const ann = meta.withAnn ? ((await DB.get('ann', s.id)) || {}) : {};
+  const n = Object.assign({}, s, {
+    id: uid(), title: meta.title, composer: meta.composer, folder: meta.folder,
+    aspects: (s.aspects || []).slice(), added: Date.now(), lastOpened: 0, annCount: meta.withAnn ? (s.annCount || 0) : 0,
+  });
+  await DB.put('files', buf, n.id);
+  if (meta.withAnn) await DB.put('ann', ann, n.id);
+  await saveScore(n);
+  S.scores.push(n);
+  return n;
+}
+async function deleteScore(id) {
+  await DB.del('files', id); await DB.del('ann', id); await DB.del('scores', id);
+  S.scores = S.scores.filter(x => x.id !== id);
+  S.setlists.forEach(l => { l.items = l.items.filter(x => x !== id); });
+  S.selected.delete(id);
+}
+
 function sheetToSetlist(id) {
   const s = byId(id);
   openSheet(`${sheetHead('セットリストに追加', esc(s.title))}
@@ -1505,19 +1573,63 @@ const ACT = {
   delDo: async d => {
     const s = byId(d.id);
     try {
-      await DB.del('files', s.id); await DB.del('ann', s.id); await DB.del('scores', s.id);
-      S.scores = S.scores.filter(x => x.id !== s.id);
-      S.setlists.forEach(l => { l.items = l.items.filter(x => x !== s.id); }); await saveSetlists();
+      await deleteScore(s.id); await saveSetlists();
       render(); refreshUsage().then(renderSidebar); toast(`「${s.title}」を削除しました`);
     } catch (e) { fail(e, '削除'); }
   },
 
+  /* select mode, move, duplicate */
+  selToggle: () => { S.selecting = !S.selecting; S.selected.clear(); render(); },
+  selAll: d => { d.ids.split(',').filter(Boolean).forEach(id => (d.on === '1' ? S.selected.add(id) : S.selected.delete(id))); SCREENS.library(cur().params); },
+  moveAsk: d => { const ids = (d.ids || '').split(',').filter(Boolean); if (ids.length) sheetMove(ids); },
+  moveDo: async d => {
+    const ids = d.ids.split(',').filter(Boolean), name = d.f ? folderName(d.f) : 'フォルダなし';
+    try {
+      await moveScores(ids, d.f);
+      S.selecting = false; S.selected.clear(); render();
+      toast(ids.length === 1 ? `「${byId(ids[0]).title}」を「${name}」に移動しました` : `${ids.length}曲を「${name}」に移動しました`);
+    } catch (e) { fail(e, '移動'); }
+  },
+  dupAsk: d => sheetDup(d.id),
+  dupDo: async d => {
+    const s = byId(d.id);
+    const meta = { title: $('#fTitle').value.trim() || s.title + '（コピー）', composer: $('#fComposer').value.trim(), folder: $('#fFolder').value, withAnn: radioVal('dupAnn') === '1' };
+    progressSheet('複製しています');
+    try { const n = await duplicateScore(s, meta); S.newId = n.id; render(); refreshUsage().then(renderSidebar); toast(`「${n.title}」を作りました`); }
+    catch (e) { closeSheet(); fail(e, '複製'); }
+  },
+  dupMany: async d => {
+    const ids = d.ids.split(',').filter(Boolean), prog = progressSheet('複製しています');
+    try {
+      for (let k = 0; k < ids.length; k++) {
+        const s = byId(ids[k]);
+        await duplicateScore(s, { title: s.title + '（コピー）', composer: s.composer, folder: s.folder, withAnn: true });
+        prog((k + 1) / ids.length, `${k + 1} / ${ids.length}曲`);
+      }
+      S.selecting = false; S.selected.clear(); render(); refreshUsage().then(renderSidebar);
+      toast(`${ids.length}曲を複製しました（書き込みもコピー）`);
+    } catch (e) { closeSheet(); fail(e, '複製'); }
+  },
+  delManyAsk: d => { const ids = d.ids.split(',').filter(Boolean); sheetConfirm(`${ids.length}曲を削除しますか？`, '書き込みも一緒に削除されます。元に戻せません', '削除', `data-act="delManyDo" data-ids="${ids.join(',')}"`); },
+  delManyDo: async d => {
+    const ids = d.ids.split(',').filter(Boolean);
+    try {
+      for (const id of ids) await deleteScore(id);
+      await saveSetlists();
+      S.selecting = false; S.selected.clear(); render(); refreshUsage().then(renderSidebar);
+      toast(`${ids.length}曲を削除しました`);
+    } catch (e) { fail(e, '削除'); }
+  },
+
   /* folders */
-  newFolder: () => sheetName('新しいフォルダ', 'フォルダ名', '', 'data-act="newFolderDo"'),
-  newFolderDo: async () => {
+  newFolder: d => sheetName('新しいフォルダ', 'フォルダ名', '', `data-act="newFolderDo" data-move="${(d && d.move) || ''}"`),
+  newFolderDo: async d => {
     const name = $('#nmInput').value.trim(); if (!name) { toast('名前を入力してください'); return; }
     const f = { id: 'f' + uid(), name }; S.folders.push(f); await saveFolders();
-    setRoot('library', { folder: f.id }); toast(`フォルダ「${name}」を作りました`);
+    const ids = (d.move || '').split(',').filter(Boolean);
+    if (ids.length) { await moveScores(ids, f.id); S.selecting = false; S.selected.clear(); }
+    setRoot('library', { folder: f.id });
+    toast(ids.length ? `フォルダ「${name}」を作って${ids.length}曲を移動しました` : `フォルダ「${name}」を作りました`);
   },
   folderMenu: d => {
     const f = S.folders.find(x => x.id === d.id);
@@ -1616,12 +1728,16 @@ document.addEventListener('click', e => {
   const nav = e.target.closest('[data-nav]');
   if (nav) {
     const parts = nav.dataset.nav.split(':'), name = parts[0], arg = parts[1];
+    const keepSel = S.selecting && name === 'library';
+    if (!keepSel) { S.selecting = false; S.selected.clear(); }
     if (name === 'library') { S.search = ''; setRoot('library', { folder: arg }); }
     else if (name === 'setlist') setRoot('setlist', { id: arg });
     else setRoot(name);
     $('#view').scrollTop = 0;
     return;
   }
+  const sel = e.target.closest('[data-sel]');
+  if (sel) { const id = sel.dataset.sel; if (S.selected.has(id)) S.selected.delete(id); else S.selected.add(id); const sc = $('#view').scrollTop; SCREENS.library(cur().params); $('#view').scrollTop = sc; return; }
   const op = e.target.closest('[data-open]');
   if (op) { go('viewer', { scoreId: op.dataset.open }); return; }
   const more = e.target.closest('[data-more]');
