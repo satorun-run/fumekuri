@@ -5,7 +5,7 @@
 (() => {
 'use strict';
 if (window.__fmkUnsupported) return; // index.html shows the "please update" message
-const VERSION = '1.3.4';
+const VERSION = '1.3.5';
 
 /* ---------- Utilities ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -612,27 +612,47 @@ async function buildExport(sc, opt, onProgress) {
 }
 
 /* ---------- Share / save a file ---------- */
-async function shareFile(file) {
-  if (navigator.canShare && navigator.share) {
-    let ok = false;
-    try { ok = navigator.canShare({ files: [file] }); } catch (e) { ok = false; }
-    if (ok) {
-      try { await navigator.share({ files: [file], title: file.name }); return; }
-      catch (e) { if (e.name === 'AbortError') return; }
-    }
-  }
+function canShareFile(file) { try { return !!(navigator.canShare && navigator.share && navigator.canShare({ files: [file] })); } catch (e) { return false; } }
+function downloadFile(file) {
   const url = URL.createObjectURL(file);
   const a = document.createElement('a');
   a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60000);
-  toast(`${file.name} を保存しました`);
+  toast(`${file.name} を「ダウンロード」フォルダに保存しました`, 4000);
+}
+async function shareFile(file) {
+  if (canShareFile(file)) {
+    try { await navigator.share({ files: [file], title: file.name }); return; }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+  downloadFile(file);
+}
+/* PC (Chrome / Edge): choose the folder and file name in the system "Save As" dialog */
+async function saveFileAs(file) {
+  if (window.showSaveFilePicker) {
+    try {
+      const ext = (file.name.match(/\.[^.]+$/) || ['.bin'])[0];
+      const handle = await window.showSaveFilePicker({ suggestedName: file.name, types: [{ description: ext === '.pdf' ? 'PDF' : '譜めくりのファイル', accept: { [file.type || 'application/octet-stream']: [ext] } }] });
+      const w = await handle.createWritable();
+      await w.write(file); await w.close();
+      toast(`「${handle.name}」を保存しました`, 3500);
+      return;
+    } catch (e) { if (e.name === 'AbortError') return; console.warn(e); }
+  }
+  downloadFile(file);
 }
 let READY = null;
 function sheetReady(file, title, note) {
   READY = file;
+  const picker = !!window.showSaveFilePicker, share = canShareFile(file), save = picker || !share;
+  if (note && save) note = note.replace('「送る・保存する」', share ? '「共有…」' : '「ダウンロード」');
   openSheet(`${sheetHead(title, `${esc(file.name)}（${fmtMB(file.size)}）`)}
     ${note ? `<p class="help">${note}</p>` : ''}
-    <div class="sheet-foot"><button class="btn" data-act="closeSheet">閉じる</button><button class="btn primary" data-act="shareReady">${ic('share')}送る・保存する…</button></div>`);
+    ${picker ? '<p class="help">「保存…」を押すと、保存するフォルダとファイル名を選べます。</p>' : ''}
+    <div class="sheet-foot"><button class="btn" data-act="closeSheet">閉じる</button>
+      ${share ? `<button class="btn ${save ? '' : 'primary'}" data-act="shareReady">${ic('share')}${save ? '共有…' : '送る・保存する…'}</button>` : ''}
+      ${save ? `<button class="btn primary" data-act="saveReady">${ic('pdf')}${picker ? '保存…' : 'ダウンロード'}</button>` : ''}
+    </div>`);
 }
 
 /* ---------- Backup ---------- */
@@ -1275,6 +1295,7 @@ SCREENS.scanReview = () => {
   const full = $('#full');
   full.className = '';
   if (!SCAN.shots.length) { setRoot('library', { folder: 'all' }); return; }
+  const oldSide = $('.rv-side', full), sideScroll = oldSide ? oldSide.scrollTop : null; // keep the page list where it was
   const s = SCAN.shots[SCAN.cur];
   const names = { auto: '自動補正', bw: '白黒', gray: 'グレー', color: 'カラー' };
   full.innerHTML = `
@@ -1296,6 +1317,13 @@ SCREENS.scanReview = () => {
         <div><h3>ページ</h3><div class="rv-pages" style="margin-top:8px">${SCAN.shots.map((x, k) => `<button class="${k === SCAN.cur ? 'cur' : ''}" data-act="rvPage" data-k="${k}"><div class="thumb"><img src="${x.thumb}" alt=""></div>${k + 1}</button>`).join('')}</div></div>
       </aside>
     </div>`;
+  const side = $('.rv-side', full);
+  if (sideScroll != null) side.scrollTop = sideScroll;
+  const curBtn = $('.rv-pages .cur', side);
+  if (curBtn) { // only scroll when the selected page is outside the visible part of the list (e.g. right after adding pages)
+    const a = side.getBoundingClientRect(), b = curBtn.getBoundingClientRect();
+    if (b.top < a.top) side.scrollTop -= a.top - b.top + 8; else if (b.bottom > a.bottom) side.scrollTop += b.bottom - a.bottom + 8;
+  }
   requestAnimationFrame(rvLayout);
 };
 function rvLayout() {
@@ -1606,6 +1634,7 @@ const ACT = {
     catch (e) { closeSheet(); fail(e, 'ファイルを作成'); }
   },
   shareReady: () => { if (READY) shareFile(READY); },
+  saveReady: () => { if (READY) saveFileAs(READY); },
   export: d => sheetExport(d.id),
   exportDo: async d => {
     const s = byId(d.id), opt = { range: radioVal('range') || 'all', withAnn: radioVal('ann') === '1', name: $('#exName').value.trim() };
